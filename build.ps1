@@ -1,0 +1,1 @@
+pyinstaller --onefile --console --add-data ".\libs\ffprobe.exe;.\libs\" --name="Timestampy" --icon="./src/assets/icon.ico" .\main.py
