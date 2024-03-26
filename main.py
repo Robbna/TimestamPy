@@ -1,10 +1,13 @@
 import os
+import time
+import random
 import src.services.VideoService as VideoService
 from src.utils.colors import colors, rgb_colors
 
 
 class VideoProcessor:
     def __init__(self):
+        self.video_files = self.find_mp4_files()
         self.selected_font = self.get_user_font_choice()
         self.rgb_color = self.get_user_color_choice()
         self.language_selected = self.get_language_choice()
@@ -90,16 +93,50 @@ class VideoProcessor:
         return VideoService.DEFAULT_FONT_VALUE
 
     def process_directory_videos(self):
-        video_files = self.find_mp4_files()
-        if video_files:
-            [self.process_video(file, language=self.language_selected) for file in video_files]
+
+        if self.video_files:
+            [
+                self.process_video(file, language=self.language_selected)
+                for file in self.video_files
+            ]
         else:
             print(
                 f"{colors.BOLD}{colors.WARNING}[WARNING]{colors.ENDC} No video files found."
             )
 
+    def print_dot_animation(self):
+        for _ in range(random.randint(2, 5)):
+            for _ in range(3):
+                print(".", end="", flush=True)
+                time.sleep(0.6)
+            print("\b\b\b   \b\b\b", end="", flush=True)
+        print("...", end="", flush=True)
+
     def find_mp4_files(self):
-        return [f for f in os.listdir() if f.lower().endswith(".mp4")]
+        print()
+        print(
+            f"{colors.BOLD}{colors.OKBLUE}[INFO]{colors.ENDC} Searching mp4 files in current directory",
+            end="",
+            flush=True,
+        )
+        self.print_dot_animation()
+        print()
+        video_files = [f for f in os.listdir() if f.lower().endswith(".mp4")]
+        time.sleep(random.randint(1, 3))
+        if not video_files:
+            print(
+                f"{colors.BOLD}{colors.WARNING}[WARNING]{colors.ENDC} No video files found in current directory."
+            )
+            exit()
+        print(
+            f"{colors.BOLD}{colors.OKGREEN}[SUCCESS]{colors.ENDC} Found {len(video_files)} video files."
+        )
+        print(
+            f"{colors.BOLD}{colors.OKBLUE}[INFO]{colors.ENDC} Video files found: {video_files}"
+        )
+        time.sleep(random.randint(1, 2))
+        print()
+        return video_files
 
     def process_video(self, file_name, language):
         self.print_separator()
@@ -108,7 +145,10 @@ class VideoProcessor:
         )
         try:
             VideoService.process_video(
-                file_name, language=language, font=self.selected_font, color=self.rgb_color
+                file_name,
+                language=language,
+                font=self.selected_font,
+                color=self.rgb_color,
             )
         except Exception as e:
             print(
@@ -121,7 +161,8 @@ class VideoProcessor:
 
 
 if __name__ == "__main__":
-    print('''
+    print(
+        """
 ████████╗██╗███╗   ███╗███████╗███████╗████████╗ █████╗ ███╗   ███╗██████╗ ██╗   ██╗
 ╚══██╔══╝██║████╗ ████║██╔════╝██╔════╝╚══██╔══╝██╔══██╗████╗ ████║██╔══██╗╚██╗ ██╔╝
    ██║   ██║██╔████╔██║█████╗  ███████╗   ██║   ███████║██╔████╔██║██████╔╝ ╚████╔╝ 
@@ -129,9 +170,10 @@ if __name__ == "__main__":
    ██║   ██║██║ ╚═╝ ██║███████╗███████║   ██║   ██║  ██║██║ ╚═╝ ██║██║        ██║   
    ╚═╝   ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝     ╚═╝╚═╝        ╚═╝   
 
-                                                                        Version: 1.0
+                                                                        Version: 1.1.0
 Author: @Robbna
 Repository: https://github.com/Robbna/TimestamPy
-''')
+"""
+    )
     VideoProcessor()
     input("Press any key to exit...")
