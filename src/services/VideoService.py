@@ -1,10 +1,12 @@
+from datetime import timedelta
 import os
 import cv2
+from PIL import Image, ImageDraw, ImageFont
+import numpy as np
 from moviepy.editor import VideoFileClip
 from ..utils import utils
-from ..utils.colors import colors
+from ..utils.colors import Colors
 
-# Definición de constantes para fuentes disponibles y nombres predeterminados.
 DEFAULT_FONT_NAME = "hershey_simplex"
 DEFAULT_FONT_VALUE = cv2.FONT_HERSHEY_SIMPLEX
 FONTS_AVAILABLE = {
@@ -25,75 +27,87 @@ def process_video(video_file, font, color, language):
 
     if not video_metadata:
         print(
-            f"{colors.WARNING}[WARNING]{colors.ENDC} Video metadata not found! Skipping..."
+            f"{Colors.WARNING}[WARNING]{Colors.ENDC} Video metadata not found! Skipping..."
         )
         return
 
     original_bitrate = video_metadata["format"]["bit_rate"]
-
+    original_audio = VideoFileClip(video_file)
+    original_video = cv2.VideoCapture(video_file)
+    
     try:
         creation_date = utils.get_formatted_creation_date(video_metadata)
-        
         day_name = utils.get_day_name(creation_date)
-        
+
         if language == "spanish":
             day_name = utils.get_spanish_day_name(creation_date)
-        
+
     except KeyError:
         print(
-            f"{colors.WARNING}[WARNING]{colors.ENDC} Creation date not found in metadata! Skipping..."
+            f"{Colors.WARNING}[WARNING]{Colors.ENDC} Creation date not found in metadata! Skipping..."
         )
         return
 
-    cap = cv2.VideoCapture(video_file)
-    width, height, fps = utils.get_video_properties(cap)
-    out = cv2.VideoWriter(
-        f"{video_name}_temp.mp4", cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+    width, height, fps = utils.get_video_properties(original_video)
+    
+    temporal_video_name = f"{video_name}_temp.mp4"
+    temporal_video = cv2.VideoWriter(
+        temporal_video_name, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
     )
 
-    add_timestamp_to_frames(
-        cap, out, height, font, color, day_name, creation_date, fps
-    )
-
-    original_audio = extract_audio_from_original(video_file)
+    add_timestamp_to_frames(original_video, temporal_video, height, font, color, day_name, creation_date, fps)
+    
     save_final_video_with_audio(
-        f"{video_name}_temp.mp4", video_name, original_audio, original_bitrate
+        temporal_video_name, video_name, original_audio, original_bitrate
     )
 
 
-def add_timestamp_to_frames(
-    cap, out, height, font, color, spanish_day, creation_date, fps
-):
+def add_timestamp_to_frames(videoCapture, out, height, font, color, day, creation_date, fps):
     frame_number = 0
-    while cap.isOpened():
-        ret, frame = cap.read()
+    font_size = 50
+    margin = 15
+
+    text_position = (margin + (margin / 2), (height - font_size) - margin)
+
+    while videoCapture.isOpened():
+        ret, frame = videoCapture.read()
         if not ret:
             break
         frame_number += 1
-        utils.add_timestamp_to_frame(
-            frame, frame_number, fps, height, font, color, spanish_day, creation_date
+
+        frame_time = creation_date + timedelta(seconds=frame_number / fps)
+        final_frame_time_str = frame_time.strftime("%d-%m-%Y %H:%M:%S")
+        date_part, time_part = final_frame_time_str.split(" ")
+
+        text = f"{day}, {date_part} {time_part}"
+
+        img_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        draw = ImageDraw.Draw(img_pil)
+        font = ImageFont.truetype(
+            # utils.resource_path(".\\assets\\fonts\\pixelart_1.ttf"), font_size
+            utils.resource_path(".\\assets\\fonts\\VCR_OSD_MONO_1.001.ttf"), font_size
         )
-        out.write(frame)
-    cap.release()
+
+        draw.text(text_position, text, font=font, fill=color)
+
+        edited_frame = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+
+        out.write(edited_frame)
+    videoCapture.release()
     out.release()
     cv2.destroyAllWindows()
 
 
-def extract_audio_from_original(video_file):
-    original_video = VideoFileClip(video_file)
-    return original_video.audio
-
-
-def save_final_video_with_audio(temp_video_path, video_name, audio, original_bitrate):
-    edited_video = VideoFileClip(temp_video_path).set_audio(audio)
-    final_video_path = f"{video_name}_timestamp.mp4"
+def save_final_video_with_audio(temp_video_name, original_video_name, audio, bitrate):
+    edited_video = VideoFileClip(temp_video_name).set_audio(audio)
+    final_video_path = f"{original_video_name}_timestamp.mp4"
     edited_video.write_videofile(
         final_video_path,
         codec="libx264",
         audio_codec="aac",
-        bitrate=f"{int(original_bitrate)/1369}k",
+        bitrate=f"{int(bitrate)/1369}k",
     )
-    os.remove(temp_video_path)
+    os.remove(final_video_path)
     print(
-        f"{colors.OKGREEN}[INFO]{colors.ENDC} Final video saved successfully at {final_video_path}!"
+        f"{Colors.OKGREEN}[INFO]{Colors.ENDC} Final video saved successfully at {final_video_path}!"
     )
